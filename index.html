@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mantenimiento Pro - Sincronizado</title>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <!-- Firebase App (the core Firebase SDK) is always required and must be listed first -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <!-- Add Firebase products that you want to use -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Outfit', 'sans-serif'],
+                    },
+                    colors: {
+                        vehicle: {
+                            primary: '#3b82f6',
+                            secondary: '#1d4ed8',
+                        },
+                        bike: {
+                            primary: '#10b981',
+                            secondary: '#047857',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background: radial-gradient(circle at top left, #1e293b, #0f172a);
+            color: #f8fafc;
+            min-height: 100vh;
+        }
+        .glass {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 24px;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .glass-card:hover {
+            transform: translateY(-4px);
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+        .btn-primary {
+            transition: all 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+        .btn-primary:active {
+            transform: scale(0.95);
+        }
+        input, textarea, select {
+            background: rgba(0, 0, 0, 0.2) !important;
+            border: 1px solid rgba(255, 255, 255, 0.1) !important;
+            color: white !important;
+            transition: border-color 0.2s;
+        }
+        input:focus, textarea:focus, select:focus {
+            border-color: #3b82f6 !important;
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+        }
+        .tab-active-vehicle {
+            background: rgba(59, 130, 246, 0.2);
+            color: #3b82f6;
+            border-bottom: 2px solid #3b82f6;
+        }
+        .tab-active-bike {
+            background: rgba(16, 185, 129, 0.2);
+            color: #10b981;
+            border-bottom: 2px solid #10b981;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade {
+            animation: fadeIn 0.4s ease-out forwards;
+        }
+        .overlay {
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+        }
+    </style>
+</head>
+<body>
+    <div id="root">
+        <div class="flex items-center justify-center p-20 text-slate-500 font-sans tracking-widest animate-pulse uppercase text-sm">Cargando aplicación...</div>
+    </div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        const Icon = ({ name, className }) => {
+            const icons = {
+                fileText: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><line x1="10" x2="8" y1="9" y2="9"/></svg>,
+                car: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg>,
+                bike: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="18.5" cy="17.5" r="3.5"/><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="15" cy="5" r="1"/><path d="M12 17.5V14l-3-3 4-3 2 3h2"/></svg>,
+                cloud: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M17.5 19a5.5 5.5 0 0 0 5.5-5.5c0-3.04-2.46-5.5-5.5-5.5-.32 0-.64.03-.95.09A8.003 8.003 0 0 0 1 10.5C1 15.19 4.81 19 9.5 19h8Z"/></svg>,
+                download: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>,
+                upload: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>,
+                settings: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>,
+                trash: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>,
+                plus: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="12" x2="12" y1="5" y2="19"/><line x1="5" x2="19" y1="12" y2="12"/></svg>,
+                x: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="18" x2="6" y1="6" y2="18"/><line x1="6" x2="18" y1="6" y2="18"/></svg>,
+                calendar: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>,
+                edit: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>,
+            };
+            return icons[name] || null;
+        };
+
+        const App = () => {
+            const [activeTab, setActiveTab] = useState('vehicle');
+            const [records, setRecords] = useState(() => {
+                const saved = localStorage.getItem('maintenance_records');
+                return saved ? JSON.parse(saved) : { vehicle: [], bike: [] };
+            });
+            const [brands, setBrands] = useState(() => {
+                const saved = localStorage.getItem('maintenance_brands');
+                return saved ? JSON.parse(saved) : { vehicle: 'Mi Vehículo', bike: 'Mi Bicicleta' };
+            });
+            const [firebaseConfig, setFirebaseConfig] = useState(() => {
+                const saved = localStorage.getItem('firebase_config');
+                return saved ? JSON.parse(saved) : null;
+            });
+            const [showForm, setShowForm] = useState(false);
+            const [editingRecord, setEditingRecord] = useState(null);
+            const [editingBrand, setEditingBrand] = useState(false);
+            const [showSettings, setShowSettings] = useState(false);
+            const [syncStatus, setSyncStatus] = useState('idle'); // idle, syncing, success, error
+            const dbRef = useRef(null);
+            const [currentTasks, setCurrentTasks] = useState([{ desc: '', price: '' }]);
+            const [invoiceFile, setInvoiceFile] = useState(null);
+
+            // Persist to LocalStorage
+            useEffect(() => {
+                try {
+                    localStorage.setItem('maintenance_records', JSON.stringify(records));
+                } catch (e) {
+                    console.error("No se pudo guardar en localStorage (probablemente excedió la cuota):", e);
+                }
+            }, [records]);
+
+            useEffect(() => {
+                try {
+                    localStorage.setItem('maintenance_brands', JSON.stringify(brands));
+                } catch (e) {
+                    console.error("Error guardando brands:", e);
+                }
+            }, [brands]);
+
+            // Firebase Integration
+            useEffect(() => {
+                if (firebaseConfig && !dbRef.current) {
+                    try {
+                        if (!firebase.apps.length) {
+                            firebase.initializeApp(firebaseConfig);
+                        }
+                        const db = firebase.database();
+                        dbRef.current = db.ref('maintenance_data');
+                        
+                        // Listen for remote changes
+                        dbRef.current.on('value', (snapshot) => {
+                            const data = snapshot.val();
+                            if (data) {
+                                if (data.records) setRecords(data.records);
+                                if (data.brands) setBrands(data.brands);
+                                setSyncStatus('success');
+                            }
+                        });
+                    } catch (err) {
+                        console.error("Firebase Init Error:", err);
+                        setSyncStatus('error');
+                    }
+                }
+            }, [firebaseConfig]);
+
+            const pushToCloud = (data, type = 'records') => {
+                if (dbRef.current) {
+                    setSyncStatus('syncing');
+                    const updates = type === 'records' ? { records: data } : { brands: data };
+                    dbRef.current.update(updates)
+                        .then(() => setSyncStatus('success'))
+                        .catch(() => setSyncStatus('error'));
+                }
+            };
+
+            const updateBrand = (newBrand) => {
+                const updated = { ...brands, [activeTab]: newBrand };
+                setBrands(updated);
+                pushToCloud(updated, 'brands');
+                setEditingBrand(false);
+            };
+
+            const addRecord = (newRecord) => {
+                let updated;
+                if (editingRecord) {
+                    updated = {
+                        ...records,
+                        [activeTab]: records[activeTab].map(r => r.id === editingRecord.id ? { ...newRecord, id: editingRecord.id } : r)
+                    };
+                } else {
+                    updated = {
+                        ...records,
+                        [activeTab]: [newRecord, ...records[activeTab]]
+                    };
+                }
+                setRecords(updated);
+                pushToCloud(updated);
+                setShowForm(false);
+                setEditingRecord(null);
+            };
+
+            const handleOpenForm = (record = null) => {
+                if (record) {
+                    setEditingRecord(record);
+                    if (record.tasks && record.tasks.length > 0) {
+                        setCurrentTasks(record.tasks);
+                    } else {
+                        setCurrentTasks([{ desc: record.type || '', price: record.price || '' }]);
+                    }
+                    setInvoiceFile(record.invoice || null);
+                } else {
+                    setEditingRecord(null);
+                    setCurrentTasks([{ desc: '', price: '' }]);
+                    setInvoiceFile(null);
+                }
+                setShowForm(true);
+            };
+
+            const startEdit = (record) => {
+                handleOpenForm(record);
+            };
+
+            const deleteRecord = (id) => {
+                const updated = {
+                    ...records,
+                    [activeTab]: records[activeTab].filter(r => r.id !== id)
+                };
+                setRecords(updated);
+                pushToCloud(updated);
+            };
+
+            const exportData = () => {
+                const blob = new Blob([JSON.stringify(records, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `mantenimiento_backup_${new Date().toISOString().split('T')[0]}.json`;
+                a.click();
+            };
+
+            const importData = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        const data = JSON.parse(event.target.result);
+                        if (data.vehicle && data.bike) {
+                            setRecords(data);
+                            pushToCloud(data);
+                            alert("Datos importados con éxito");
+                        }
+                    } catch (err) {
+                        alert("Error al importar el archivo");
+                    }
+                };
+                reader.readAsText(file);
+            };
+
+            const themeColor = activeTab === 'vehicle' ? 'vehicle' : 'bike';
+
+            return (
+                <div className="max-w-6xl mx-auto px-4 py-8 md:py-12 relative min-h-screen">
+                    {/* Header */}
+                    <header className="mb-12 text-center relative">
+                        <h1 className="text-4xl md:text-5xl font-bold mb-4 tracking-tight">
+                            Mantenimiento <span className={activeTab === 'vehicle' ? 'text-blue-500' : 'text-emerald-500'}>Pro</span>
+                        </h1>
+                        <p className="text-slate-400 text-lg">Tu historial en la nube, sincronizado.</p>
+                        
+                        <button 
+                            onClick={() => setShowSettings(true)}
+                            className="absolute top-0 right-0 p-3 glass hover:bg-white/10 transition-colors"
+                        >
+                            <Icon name="settings" className="w-6 h-6" />
+                        </button>
+                    </header>
+
+                    {/* Navigation */}
+                    <nav className="flex justify-center mb-10">
+                        <div className="glass p-1 flex gap-2">
+                            <button 
+                                onClick={() => {setActiveTab('vehicle'); setShowForm(false);}}
+                                className={`px-6 py-3 rounded-xl flex items-center gap-3 transition-all duration-300 ${activeTab === 'vehicle' ? 'tab-active-vehicle shadow-lg' : 'text-slate-400 hover:text-white'}`}
+                            >
+                                <Icon name="car" className="w-5 h-5" />
+                                <span className="font-semibold">Vehículo</span>
+                            </button>
+                            <button 
+                                onClick={() => {setActiveTab('bike'); setShowForm(false);}}
+                                className={`px-6 py-3 rounded-xl flex items-center gap-3 transition-all duration-300 ${activeTab === 'bike' ? 'tab-active-bike shadow-lg' : 'text-slate-400 hover:text-white'}`}
+                            >
+                                <Icon name="bike" className="w-5 h-5" />
+                                <span className="font-semibold">Bicicleta</span>
+                            </button>
+                        </div>
+                    </nav>
+
+                    {/* Content */}
+                    <main>
+                        {!showForm ? (
+                            <div class="animate-fade">
+                                <div class="flex justify-between items-center mb-8">
+                                    <div class="flex items-center gap-4 group">
+                                        {editingBrand ? (
+                                            <input 
+                                                autoFocus
+                                                defaultValue={brands[activeTab]}
+                                                onBlur={(e) => updateBrand(e.target.value)}
+                                                onKeyDown={(e) => e.key === 'Enter' && updateBrand(e.target.value)}
+                                                className="text-2xl font-bold bg-transparent border-b border-white/20 !px-1 !py-0 focus:!border-blue-500"
+                                            />
+                                        ) : (
+                                            <h2 className="text-2xl font-bold flex items-center gap-3 text-white">
+                                                {brands[activeTab]}
+                                                <button onClick={() => setEditingBrand(true)} className="p-1 px-2 hover:bg-white/10 rounded-lg transition-all flex items-center gap-2 border border-white/10">
+                                                    <Icon name="edit" className="w-3.5 h-3.5 text-blue-400" />
+                                                    <span className="text-[10px] uppercase tracking-widest font-bold text-slate-500">Editar</span>
+                                                </button>
+                                            </h2>
+                                        )}
+                                    </div>
+                                    <div class="flex gap-4">
+                                        {firebaseConfig && (
+                                            <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold ${syncStatus === 'success' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'}`}>
+                                                <Icon name="cloud" className={`w-3 h-3 ${syncStatus === 'syncing' ? 'animate-pulse' : ''}`} />
+                                                {syncStatus === 'success' ? 'Sincronizado' : syncStatus === 'syncing' ? 'Sincronizando...' : 'Nube activa'}
+                                            </div>
+                                        )}
+                                        <button 
+                                            onClick={() => handleOpenForm()}
+                                            className={`btn-primary flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold bg-${themeColor === 'primary' ? themeColor : (activeTab === 'vehicle' ? 'blue' : 'emerald')}-600 hover:bg-${activeTab === 'vehicle' ? 'blue' : 'emerald'}-500 shadow-lg`}
+                                        >
+                                            <Icon name="plus" className="w-5 h-5" />
+                                            Nuevo Registro
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {(!records[activeTab] || records[activeTab].length === 0) ? (
+                                    <div className="glass p-16 text-center border-dashed border-white/10">
+                                        <Icon name={activeTab} className="w-10 h-10 text-slate-500 mx-auto mb-6" />
+                                        <h3 className="text-xl font-semibold mb-2">No hay registros todavía</h3>
+                                        <button onClick={() => handleOpenForm()} className="text-blue-400 font-bold hover:underline">Crear ahora →</button>
+                                    </div>
+                                ) : (
+                                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                        {(records[activeTab] || []).map(record => (
+                                            <div key={record.id} class="glass-card p-6 rounded-3xl relative">
+                                                <div class="absolute top-4 right-4 flex gap-2">
+                                                    <button onClick={() => startEdit(record)} class="text-slate-500 hover:text-blue-400 transition-colors">
+                                                        <Icon name="edit" className="w-5 h-5" />
+                                                    </button>
+                                                    <button onClick={() => deleteRecord(record.id)} class="text-slate-500 hover:text-red-400 transition-colors">
+                                                        <Icon name="trash" className="w-5 h-5" />
+                                                    </button>
+                                                </div>
+                                                <div class="mb-4">
+                                                    <span class={`text-xs font-bold uppercase tracking-wider text-${activeTab === 'vehicle' ? 'blue' : 'emerald'}-400 mb-1 block`}>Mantenimiento</span>
+                                                    <h3 class="text-xl font-bold line-clamp-2" title={record.type}>{record.type}</h3>
+                                                </div>
+                                                <div class="space-y-3 mb-6">
+                                                    <div class="flex items-center gap-3 text-slate-400 text-sm">
+                                                        <Icon name="calendar" className="w-4 h-4" />
+                                                        <span>{record.date}</span>
+                                                        <span class="mx-1">•</span>
+                                                        <span>{record.km} KM</span>
+                                                    </div>
+                                                    <div class="flex flex-wrap gap-2 pt-2">
+                                                        <span class="glass bg-white/5 px-2 py-1 rounded-lg text-xs font-bold">€{Number(record.price || 0).toFixed(2)}</span>
+                                                        <span class="glass bg-white/5 px-2 py-1 rounded-lg text-xs">{record.place}</span>
+                                                    </div>
+                                                </div>
+                                                {(record.tasks && Array.isArray(record.tasks) && record.tasks.length > 0) && (
+                                                    <div className="bg-black/20 rounded-xl p-3 border border-white/5 space-y-2 mb-4">
+                                                        {record.tasks.map((task, i) => (
+                                                            <div key={i} className="flex justify-between items-center text-sm gap-4">
+                                                                <span className="text-slate-300 truncate" title={task.desc}>{task.desc}</span>
+                                                                <span className="font-semibold whitespace-nowrap">{Number(task.price || 0).toFixed(2)} €</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                                {record.invoice && (
+                                                    <div className="mb-4">
+                                                        <a 
+                                                            href={record.invoice.base64} 
+                                                            download={record.invoice.name || 'factura.pdf'}
+                                                            className="flex items-center justify-center gap-2 text-sm text-blue-400 hover:text-blue-300 font-semibold bg-blue-500/10 hover:bg-blue-500/20 px-3 py-3 rounded-xl w-full transition-colors border border-blue-500/20"
+                                                        >
+                                                            <Icon name="fileText" className="w-5 h-5" />
+                                                            Descargar Factura PDF
+                                                        </a>
+                                                    </div>
+                                                )}
+                                                <div class="bg-white/5 p-4 rounded-2xl mb-4 border border-white/5">
+                                                    <div class="text-xs text-slate-500 font-bold mb-1 uppercase tracking-tight">Próximo cambio</div>
+                                                    <div class="font-semibold text-sm">{record.nextChange || 'No especificado'}</div>
+                                                </div>
+                                                {record.obs && <p class="text-sm text-slate-400 italic line-clamp-2">"{record.obs}"</p>}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        ) : (
+                            <div className="animate-fade max-w-2xl mx-auto">
+                                <form 
+                                    onSubmit={(e) => {
+                                        e.preventDefault();
+                                        const formData = new FormData(e.target);
+                                        const summaryType = currentTasks.map(t => t.desc).filter(Boolean).join(', ') || 'Mantenimiento';
+                                        const totalPrice = currentTasks.reduce((sum, task) => sum + (parseFloat(task.price) || 0), 0);
+                                        addRecord({
+                                            id: editingRecord ? editingRecord.id : Date.now(),
+                                            date: formData.get('date'),
+                                            km: formData.get('km'),
+                                            type: summaryType,
+                                            price: totalPrice,
+                                            place: formData.get('place'),
+                                            who: formData.get('who'),
+                                            nextChange: formData.get('nextChange'),
+                                            obs: formData.get('obs'),
+                                            tasks: currentTasks,
+                                            invoice: invoiceFile
+                                        });
+                                    }}
+                                    className="glass p-8"
+                                >
+                                    <div className="flex justify-between items-center mb-8">
+                                        <h2 className="text-2xl font-bold">{editingRecord ? 'Editar Mantenimiento' : 'Nuevo Mantenimiento'}</h2>
+                                        <button type="button" onClick={() => { setShowForm(false); setEditingRecord(null); }} className="text-slate-400 hover:text-white">Cancelar</button>
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div className="space-y-2">
+                                            <label className="text-sm font-semibold text-slate-400 ml-1">Fecha</label>
+                                            <input required name="date" type="date" defaultValue={editingRecord?.date} className="w-full px-4 py-3 rounded-xl" />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-sm font-semibold text-slate-400 ml-1">KM actuales</label>
+                                            <input required name="km" type="number" defaultValue={editingRecord?.km} className="w-full px-4 py-3 rounded-xl" />
+                                        </div>
+                                        
+                                        <div className="md:col-span-2 space-y-4">
+                                            <label className="text-sm font-semibold text-slate-400 ml-1">Tareas / Recambios</label>
+                                            <div className="space-y-3">
+                                                {currentTasks.map((task, index) => (
+                                                    <div key={index} className="flex gap-3 items-start">
+                                                        <input 
+                                                            required 
+                                                            placeholder="Descripción (ej: Cambio de aceite)" 
+                                                            value={task.desc} 
+                                                            onChange={(e) => {
+                                                                const newTasks = [...currentTasks];
+                                                                newTasks[index].desc = e.target.value;
+                                                                setCurrentTasks(newTasks);
+                                                            }} 
+                                                            className="flex-1 px-4 py-3 rounded-xl" 
+                                                        />
+                                                        <div className="w-32 relative shrink-0">
+                                                            <input 
+                                                                required 
+                                                                type="number" 
+                                                                step="0.01" 
+                                                                placeholder="Precio" 
+                                                                value={task.price} 
+                                                                onChange={(e) => {
+                                                                    const newTasks = [...currentTasks];
+                                                                    newTasks[index].price = e.target.value;
+                                                                    setCurrentTasks(newTasks);
+                                                                }} 
+                                                                className="w-full px-4 py-3 rounded-xl pr-8" 
+                                                            />
+                                                            <span className="absolute right-3 top-3 text-slate-400">€</span>
+                                                        </div>
+                                                        {currentTasks.length > 1 && (
+                                                            <button 
+                                                                type="button" 
+                                                                onClick={() => {
+                                                                    const newTasks = currentTasks.filter((_, i) => i !== index);
+                                                                    setCurrentTasks(newTasks);
+                                                                }}
+                                                                className="p-3 mt-0 text-slate-400 hover:text-red-400 transition-colors bg-white/5 hover:bg-white/10 rounded-xl"
+                                                            >
+                                                                <Icon name="trash" className="w-5 h-5" />
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            <button 
+                                                type="button" 
+                                                onClick={() => setCurrentTasks([...currentTasks, { desc: '', price: '' }])}
+                                                className="text-sm font-bold text-blue-400 hover:text-blue-300 flex items-center gap-2 px-2 py-1"
+                                            >
+                                                <Icon name="plus" className="w-4 h-4" />
+                                                Añadir otra línea
+                                            </button>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <label className="text-sm font-semibold text-slate-400 ml-1">Precio Total (€)</label>
+                                            <div className="w-full px-4 py-3 rounded-xl bg-black/20 border border-white/10 text-white font-bold opacity-70 flex items-center h-[52px]">
+                                                {currentTasks.reduce((sum, task) => sum + (parseFloat(task.price) || 0), 0).toFixed(2)}
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <label className="text-sm font-semibold text-slate-400 ml-1">Factura (PDF/Foto)</label>
+                                            <div className="flex flex-col gap-2">
+                                                <label className="cursor-pointer bg-white/5 hover:bg-white/10 border border-white/10 px-4 rounded-xl flex items-center justify-center gap-2 transition-colors w-full h-[52px] relative overflow-hidden">
+                                                    <Icon name="upload" className="w-5 h-5 text-blue-400 shrink-0" />
+                                                    <span className="text-sm font-bold truncate">{invoiceFile ? invoiceFile.name : 'Subir o tomar foto PDF'}</span>
+                                                    <input 
+                                                        type="file" 
+                                                        accept=".pdf,image/*" 
+                                                        onChange={(e) => {
+                                                            const file = e.target.files[0];
+                                                            if (!file) return;
+                                                            if (file.type.startsWith('image/')) {
+                                                                const reader = new FileReader();
+                                                                reader.onload = (event) => {
+                                                                    const img = new Image();
+                                                                    img.onload = () => {
+                                                                        const canvas = document.createElement('canvas');
+                                                                        let width = img.width;
+                                                                        let height = img.height;
+                                                                        const MAX = 1000;
+                                                                        if (width > height && width > MAX) {
+                                                                            height *= MAX / width;
+                                                                            width = MAX;
+                                                                        } else if (height > MAX) {
+                                                                            width *= MAX / height;
+                                                                            height = MAX;
+                                                                        }
+                                                                        canvas.width = width;
+                                                                        canvas.height = height;
+                                                                        const ctx = canvas.getContext('2d');
+                                                                        ctx.drawImage(img, 0, 0, width, height);
+                                                                        const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
+                                                                        setInvoiceFile({ name: file.name, base64: dataUrl });
+                                                                    };
+                                                                    img.src = event.target.result;
+                                                                };
+                                                                reader.readAsDataURL(file);
+                                                            } else {
+                                                                if (file.size > 2 * 1024 * 1024) {
+                                                                    alert("El archivo PDF es grande. Se recomienda usar fotos o PDFs pequeños.");
+                                                                }
+                                                                const reader = new FileReader();
+                                                                reader.onload = (event) => setInvoiceFile({ name: file.name, base64: event.target.result });
+                                                                reader.readAsDataURL(file);
+                                                            }
+                                                        }} 
+                                                        className="hidden" 
+                                                    />
+                                                </label>
+                                                {invoiceFile && (
+                                                    <button type="button" onClick={() => setInvoiceFile(null)} className="text-xs text-red-400 hover:text-red-300 flex items-center justify-center w-full gap-1">
+                                                        <Icon name="x" className="w-3 h-3" /> Quitar archivo
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <label className="text-sm font-semibold text-slate-400 ml-1">Lugar / Taller</label>
+                                            <input required name="place" type="text" defaultValue={editingRecord?.place} className="w-full px-4 py-3 rounded-xl" />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-sm font-semibold text-slate-400 ml-1">¿Quién lo hizo?</label>
+                                            <input required name="who" type="text" defaultValue={editingRecord?.who} className="w-full px-4 py-3 rounded-xl" />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-sm font-semibold text-slate-400 ml-1">Próximo cambio (Fecha o KM)</label>
+                                            <input name="nextChange" type="text" defaultValue={editingRecord?.nextChange} className="w-full px-4 py-3 rounded-xl" />
+                                        </div>
+                                        <div className="hidden md:block"></div>
+                                        <div className="md:col-span-2 space-y-2">
+                                            <label className="text-sm font-semibold text-slate-400 ml-1">Observaciones</label>
+                                            <textarea name="obs" defaultValue={editingRecord?.obs} className="w-full px-4 py-3 rounded-xl"></textarea>
+                                        </div>
+                                    </div>
+                                    <button type="submit" className={`w-full mt-10 py-4 rounded-2xl font-bold bg-${activeTab === 'vehicle' ? 'blue' : 'emerald'}-600 hover:bg-${activeTab === 'vehicle' ? 'blue' : 'emerald'}-500 shadow-xl transition-all`}>
+                                        {editingRecord ? 'Guardar Cambios' : 'Guardar Nuevo'}
+                                    </button>
+                                </form>
+                            </div>
+                        )}
+                    </main>
+
+                    {/* Settings Modal */}
+                    {showSettings && (
+                        <div className="fixed inset-0 overlay flex items-center justify-center p-4 z-50 animate-fade">
+                            <div className="glass w-full max-w-lg p-8 relative overflow-hidden">
+                                <button onClick={() => setShowSettings(false)} className="absolute top-6 right-6 text-slate-500 hover:text-white"><Icon name="x" className="w-6 h-6" /></button>
+                                
+                                <h2 className="text-2xl font-bold mb-6 flex items-center gap-3">
+                                    <Icon name="settings" className="w-6 h-6 text-blue-500" />
+                                    Sincronización & Ajustes
+                                </h2>
+
+                                <div className="space-y-8">
+                                    {/* Brand Settings */}
+                                    <section>
+                                        <h3 className="text-sm font-bold uppercase tracking-widest text-slate-500 mb-4">Nombres de Vehículos</h3>
+                                        <div className="space-y-3">
+                                            <div className="flex items-center gap-3 glass-card p-3 rounded-xl">
+                                                <Icon name="car" className="w-5 h-5 text-blue-400" />
+                                                <input 
+                                                    value={brands.vehicle} 
+                                                    onChange={(e) => setBrands({...brands, vehicle: e.target.value})}
+                                                    onBlur={() => pushToCloud(brands, 'brands')}
+                                                    placeholder="Ej: Mi Coche" 
+                                                    className="bg-transparent !border-none focus:!ring-0 p-0 text-sm w-full"
+                                                />
+                                            </div>
+                                            <div className="flex items-center gap-3 glass-card p-3 rounded-xl">
+                                                <Icon name="bike" className="w-5 h-5 text-emerald-400" />
+                                                <input 
+                                                    value={brands.bike} 
+                                                    onChange={(e) => setBrands({...brands, bike: e.target.value})}
+                                                    onBlur={() => pushToCloud(brands, 'brands')}
+                                                    placeholder="Ej: Mi Bici" 
+                                                    className="bg-transparent !border-none focus:!ring-0 p-0 text-sm w-full"
+                                                />
+                                            </div>
+                                        </div>
+                                    </section>
+
+                                    {/* Manual Backup */}
+                                    <section>
+                                        <h3 className="text-sm font-bold uppercase tracking-widest text-slate-500 mb-4">Copia de Seguridad Manual</h3>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <button onClick={exportData} className="flex flex-col items-center gap-3 p-4 glass-card rounded-2xl group">
+                                                <div className="w-12 h-12 bg-blue-500/10 rounded-full flex items-center justify-center group-hover:bg-blue-500/20"><Icon name="download" className="w-6 h-6 text-blue-400" /></div>
+                                                <span className="text-sm font-semibold">Exportar JSON</span>
+                                            </button>
+                                            <label className="flex flex-col items-center gap-3 p-4 glass-card rounded-2xl cursor-pointer group">
+                                                <div className="w-12 h-12 bg-emerald-500/10 rounded-full flex items-center justify-center group-hover:bg-emerald-500/20"><Icon name="upload" className="w-6 h-6 text-emerald-400" /></div>
+                                                <span className="text-sm font-semibold">Importar JSON</span>
+                                                <input type="file" onChange={importData} className="hidden" accept=".json" />
+                                            </label>
+                                        </div>
+                                    </section>
+
+                                    {/* Cloud Sync */}
+                                    <section>
+                                        <h3 className="text-sm font-bold uppercase tracking-widest text-slate-500 mb-4">Sincronización en la Nube (Firebase)</h3>
+                                        <form 
+                                            onSubmit={(e) => {
+                                                e.preventDefault();
+                                                const fd = new FormData(e.target);
+                                                const config = {
+                                                    apiKey: fd.get('apiKey'),
+                                                    authDomain: fd.get('authDomain'),
+                                                    databaseURL: fd.get('databaseURL'),
+                                                    projectId: fd.get('projectId'),
+                                                    storageBucket: fd.get('storageBucket'),
+                                                    messagingSenderId: fd.get('messagingSenderId'),
+                                                    appId: fd.get('appId')
+                                                };
+                                                localStorage.setItem('firebase_config', JSON.stringify(config));
+                                                setFirebaseConfig(config);
+                                                window.location.reload(); // Refresh to restart firebase
+                                            }}
+                                            className="space-y-4"
+                                        >
+                                            <p className="text-xs text-slate-400 leading-relaxed mb-4">
+                                                Para sincronizar entre dispositivos, pega tus credenciales de un proyecto de Firebase (Realtime Database).
+                                            </p>
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <input defaultValue={firebaseConfig?.apiKey} name="apiKey" placeholder="API Key" className="p-2 text-xs rounded-lg" />
+                                                <input defaultValue={firebaseConfig?.projectId} name="projectId" placeholder="Project ID" className="p-2 text-xs rounded-lg" />
+                                            </div>
+                                            <input defaultValue={firebaseConfig?.databaseURL} name="databaseURL" placeholder="Database URL" className="w-full p-2 text-xs rounded-lg" />
+                                            <button type="submit" className="w-full py-2 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold text-sm">Guardar Configuración Nube</button>
+                                            {firebaseConfig && <button type="button" onClick={() => { localStorage.removeItem('firebase_config'); window.location.reload(); }} className="w-full py-2 border border-red-500/30 text-red-400 hover:bg-red-500/10 rounded-xl font-bold text-sm mt-2">Desconectar Nube</button>}
+                                        </form>
+                                    </section>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    <footer className="mt-20 text-center text-slate-600 text-sm">
+                        <p>&copy; 2024 Mantenimiento Pro</p>
+                    </footer>
+                </div>
+            );
+        };
+
+        try {
+            class ErrorBoundary extends React.Component {
+                constructor(props) {
+                    super(props);
+                    this.state = { hasError: false, error: null };
+                }
+                static getDerivedStateFromError(error) { return { hasError: true, error }; }
+                componentDidCatch(error, errorInfo) { console.error("React Crash:", error, errorInfo); }
+                render() {
+                    if (this.state.hasError) {
+                        return (
+                            <div className="p-10 bg-red-900/50 text-white min-h-screen font-sans">
+                                <h1 className="text-3xl font-bold mb-4">Algo salió mal</h1>
+                                <p className="mb-4">Se ha producido un error al intentar mostrar la aplicación. Esto suele ocurrir si hay un archivo/foto demasiado pesado o un problema de conexión con la nube.</p>
+                                <pre className="text-xs bg-black/50 p-4 rounded-xl overflow-auto text-red-200 mb-6 border border-red-500/30">
+                                    {this.state.error && this.state.error.toString()}
+                                </pre>
+                                <button className="px-6 py-3 bg-white/10 hover:bg-white/20 transition-colors rounded-xl font-bold border border-white/20" onClick={() => window.location.reload()}>
+                                    Recargar la página
+                                </button>
+                                <button className="px-6 py-3 ml-4 bg-red-500/20 hover:bg-red-500/40 transition-colors rounded-xl font-bold text-red-100 border border-red-500/30" onClick={() => {
+                                    localStorage.removeItem('maintenance_records');
+                                    window.location.reload();
+                                }}>
+                                    Borrar datos locales y Recargar
+                                </button>
+                            </div>
+                        );
+                    }
+                    return this.props.children;
+                }
+            }
+
+            const root = ReactDOM.createRoot(document.getElementById('root'));
+            root.render(<ErrorBoundary><App /></ErrorBoundary>);
+        } catch (e) {
+            document.getElementById('root').innerHTML = `<div class="p-10 text-red-500">Error de inicio: ${e.message}</div>`;
+        }
+    </script>
+</body>
+</html>
