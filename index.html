@@ -390,12 +390,12 @@
                                                 <div class="space-y-3 mb-6">
                                                     <div class="flex items-center gap-3 text-slate-400 text-sm">
                                                         <Icon name="calendar" className="w-4 h-4" />
-                                                        <span>{record.date}</span>
+                                                        <span>{record.date ? record.date.split('-').reverse().join('/') : ''}</span>
                                                         <span class="mx-1">•</span>
                                                         <span>{record.km} KM</span>
                                                     </div>
                                                     <div class="flex flex-wrap gap-2 pt-2">
-                                                        <span class="glass bg-white/5 px-2 py-1 rounded-lg text-xs font-bold">€{Number(record.price || 0).toFixed(2)}</span>
+                                                        <span class="glass bg-white/5 px-2 py-1 rounded-lg text-xs font-bold">€{Number(record.price || 0).toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                                                         <span class="glass bg-white/5 px-2 py-1 rounded-lg text-xs">{record.place}</span>
                                                     </div>
                                                 </div>
@@ -404,7 +404,7 @@
                                                         {record.tasks.map((task, i) => (
                                                             <div key={i} className="flex justify-between items-center text-sm gap-4">
                                                                 <span className="text-slate-300 truncate" title={task.desc}>{task.desc}</span>
-                                                                <span className="font-semibold whitespace-nowrap">{Number(task.price || 0).toFixed(2)} €</span>
+                                                                <span className="font-semibold whitespace-nowrap">{Number(task.price || 0).toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})} €</span>
                                                             </div>
                                                         ))}
                                                     </div>
@@ -527,7 +527,7 @@
                                         <div className="space-y-2">
                                             <label className="text-sm font-semibold text-slate-400 ml-1">Precio Total (€)</label>
                                             <div className="w-full px-4 py-3 rounded-xl bg-black/20 border border-white/10 text-white font-bold opacity-70 flex items-center h-[52px]">
-                                                {currentTasks.reduce((sum, task) => sum + (parseFloat(task.price) || 0), 0).toFixed(2)}
+                                                {currentTasks.reduce((sum, task) => sum + (parseFloat(task.price) || 0), 0).toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                                             </div>
                                         </div>
 
