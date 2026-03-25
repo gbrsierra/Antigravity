@@ -122,6 +122,7 @@
                 calendar: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>,
                 edit: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>,
                 eye: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>,
+                clock: <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
             };
             return icons[name] || null;
         };
@@ -149,6 +150,7 @@
             const [currentTasks, setCurrentTasks] = useState([{ desc: '', price: '' }]);
             const [invoiceFile, setInvoiceFile] = useState(null);
             const [previewInvoice, setPreviewInvoice] = useState(null);
+            const [selectedRecord, setSelectedRecord] = useState(null);
 
             // Persist to LocalStorage
             useEffect(() => {
@@ -376,12 +378,16 @@
                                 ) : (
                                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                         {(records[activeTab] || []).map(record => (
-                                            <div key={record.id} class="glass-card p-6 rounded-3xl relative">
-                                                <div class="absolute top-4 right-4 flex gap-2">
-                                                    <button onClick={() => startEdit(record)} class="text-slate-500 hover:text-blue-400 transition-colors">
+                                            <div 
+                                                key={record.id} 
+                                                class="glass-card p-6 rounded-3xl relative cursor-pointer"
+                                                onClick={() => setSelectedRecord(record)}
+                                            >
+                                                <div class="absolute top-4 right-4 flex gap-2 z-10">
+                                                    <button onClick={(e) => { e.stopPropagation(); startEdit(record); }} class="text-slate-500 hover:text-blue-400 transition-colors bg-white/5 p-2 rounded-lg">
                                                         <Icon name="edit" className="w-5 h-5" />
                                                     </button>
-                                                    <button onClick={() => deleteRecord(record.id)} class="text-slate-500 hover:text-red-400 transition-colors">
+                                                    <button onClick={(e) => { e.stopPropagation(); deleteRecord(record.id); }} class="text-slate-500 hover:text-red-400 transition-colors bg-white/5 p-2 rounded-lg">
                                                         <Icon name="trash" className="w-5 h-5" />
                                                     </button>
                                                 </div>
@@ -414,7 +420,7 @@
                                                 {record.invoice && (
                                                     <div className="mb-4 flex gap-2">
                                                         <button 
-                                                            onClick={() => setPreviewInvoice(record.invoice)}
+                                                            onClick={(e) => { e.stopPropagation(); setPreviewInvoice(record.invoice); }}
                                                             className="flex-1 flex items-center justify-center gap-2 text-sm text-blue-400 hover:text-blue-300 font-semibold bg-blue-500/10 hover:bg-blue-500/20 px-3 py-3 rounded-xl transition-colors border border-blue-500/20"
                                                         >
                                                             <Icon name="eye" className="w-5 h-5" />
@@ -423,6 +429,7 @@
                                                         <a 
                                                             href={record.invoice.base64} 
                                                             download={record.invoice.name || 'factura.pdf'}
+                                                            onClick={(e) => e.stopPropagation()}
                                                             className="flex items-center justify-center gap-2 text-sm text-blue-400 hover:text-blue-300 font-semibold bg-blue-500/10 hover:bg-blue-500/20 px-3 py-3 rounded-xl transition-colors border border-blue-500/20"
                                                             title="Descargar"
                                                         >
@@ -623,6 +630,149 @@
                             </div>
                         )}
                     </main>
+
+                    {/* Record Detail Modal */}
+                    {selectedRecord && (
+                        <div className="fixed inset-0 overlay flex items-center justify-center p-4 z-[70] animate-fade" onClick={() => setSelectedRecord(null)}>
+                            <div className="glass w-full max-w-4xl p-6 md:p-10 relative overflow-hidden flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
+                                <button onClick={() => setSelectedRecord(null)} className="absolute top-6 right-6 text-slate-500 hover:text-white bg-white/5 p-2 rounded-xl transition-all"><Icon name="x" className="w-6 h-6" /></button>
+                                
+                                <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
+                                    {/* Header Section */}
+                                    <div className="mb-10">
+                                        <span className={`text-xs font-bold uppercase tracking-[0.2em] text-${activeTab === 'vehicle' ? 'blue' : 'emerald'}-400 mb-2 block`}>Detalle de Mantenimiento</span>
+                                        <h2 className="text-3xl md:text-4xl font-bold text-white mb-6 leading-tight">{selectedRecord.type}</h2>
+                                        
+                                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                                            <div className="glass-card p-4 rounded-2xl">
+                                                <div className="text-[10px] text-slate-500 font-bold uppercase mb-1 flex items-center gap-2 italic">
+                                                    <Icon name="calendar" className="w-3 h-3" /> Fecha
+                                                </div>
+                                                <div className="text-lg font-bold">{selectedRecord.date ? selectedRecord.date.split('-').reverse().join('/') : '-'}</div>
+                                            </div>
+                                            <div className="glass-card p-4 rounded-2xl">
+                                                <div className="text-[10px] text-slate-500 font-bold uppercase mb-1 flex items-center gap-2 italic">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M7 11V7a5 5 0 0 1 10 0v4"/><rect width="18" height="12" x="3" y="11" rx="2"/></svg> Kilometraje
+                                                </div>
+                                                <div className="text-lg font-bold text-blue-400">{Number(selectedRecord.km || 0).toLocaleString('es-ES')} <span className="text-xs text-slate-500 font-normal">KM</span></div>
+                                            </div>
+                                            <div className="glass-card p-4 rounded-2xl">
+                                                <div className="text-[10px] text-slate-500 font-bold uppercase mb-1 flex items-center gap-2 italic">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 18V6"/></svg> Coste Total
+                                                </div>
+                                                <div className="text-xl font-bold text-emerald-400">{Number(selectedRecord.price || 0).toLocaleString('es-ES', {minimumFractionDigits: 2})} €</div>
+                                            </div>
+                                            <div className={`glass-card p-4 rounded-2xl border-${activeTab === 'vehicle' ? 'blue' : 'emerald'}-500/30`}>
+                                                <div className="text-[10px] text-slate-500 font-bold uppercase mb-1 flex items-center gap-2 italic">
+                                                    <Icon name="clock" className="w-3 h-3" /> Próximo
+                                                </div>
+                                                <div className="text-sm font-semibold">{selectedRecord.nextChange || 'No definido'}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+                                        {/* Tasks & Components */}
+                                        <section>
+                                            <h3 className="text-sm font-bold uppercase tracking-widest text-slate-500 mb-4 px-2">Tareas & Componentes</h3>
+                                            <div className="bg-white/5 rounded-3xl p-6 border border-white/5 shadow-inner">
+                                                <div className="space-y-4">
+                                                    {selectedRecord.tasks && selectedRecord.tasks.length > 0 ? (
+                                                        selectedRecord.tasks.map((task, i) => (
+                                                            <div key={i} className="flex justify-between items-center group">
+                                                                <div className="flex flex-col">
+                                                                    <span className="text-slate-200 font-medium">{task.desc}</span>
+                                                                    <span className="text-[10px] text-slate-500 uppercase font-bold tracking-tighter">Unidad / Servicio</span>
+                                                                </div>
+                                                                <span className="font-bold bg-white/5 px-3 py-1 rounded-lg border border-white/5 text-sm group-hover:bg-white/10 transition-colors">
+                                                                    {Number(task.price || 0).toLocaleString('es-ES', {minimumFractionDigits: 2})} €
+                                                                </span>
+                                                            </div>
+                                                        ))
+                                                    ) : (
+                                                        <div className="text-slate-500 italic text-sm">Sin desglose de tareas</div>
+                                                    )}
+                                                </div>
+                                                <div className="mt-8 pt-6 border-t border-white/10 flex justify-between items-center">
+                                                    <span className="text-sm font-bold text-slate-400 uppercase tracking-widest italic">Total Factura</span>
+                                                    <span className="text-2xl font-bold text-white tracking-tight">{Number(selectedRecord.price || 0).toLocaleString('es-ES', {minimumFractionDigits: 2})} €</span>
+                                                </div>
+                                            </div>
+                                        </section>
+
+                                        {/* Additional Details */}
+                                        <div className="space-y-8">
+                                            <section>
+                                                <h3 className="text-sm font-bold uppercase tracking-widest text-slate-500 mb-4 px-2">Información del Taller</h3>
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                    <div className="bg-black/20 p-4 rounded-2xl border border-white/5">
+                                                        <div className="text-[10px] text-slate-500 font-bold uppercase mb-1">Localización</div>
+                                                        <div className="text-sm font-semibold text-slate-200">{selectedRecord.place || 'No especificado'}</div>
+                                                    </div>
+                                                    <div className="bg-black/20 p-4 rounded-2xl border border-white/5">
+                                                        <div className="text-[10px] text-slate-500 font-bold uppercase mb-1">Técnico / Persona</div>
+                                                        <div className="text-sm font-semibold text-slate-200">{selectedRecord.who || 'No especificado'}</div>
+                                                    </div>
+                                                </div>
+                                            </section>
+
+                                            <section>
+                                                <h3 className="text-sm font-bold uppercase tracking-widest text-slate-500 mb-4 px-2">Notas & Observaciones</h3>
+                                                <div className="bg-black/20 p-6 rounded-3xl border border-white/5 min-h-[100px]">
+                                                    <p className="text-slate-300 text-sm italic leading-relaxed">
+                                                        {selectedRecord.obs ? `"${selectedRecord.obs}"` : 'Sin observaciones adicionales para este registro.'}
+                                                    </p>
+                                                </div>
+                                            </section>
+
+                                            {selectedRecord.invoice && (
+                                                <section>
+                                                    <h3 className="text-sm font-bold uppercase tracking-widest text-slate-500 mb-4 px-2">Documentos Adjuntos</h3>
+                                                    <div className="flex gap-4">
+                                                        <button 
+                                                            onClick={() => setPreviewInvoice(selectedRecord.invoice)}
+                                                            className="flex-1 flex items-center justify-center gap-3 px-6 py-4 rounded-2xl bg-blue-600 hover:bg-blue-500 transition-all shadow-lg shadow-blue-900/40 text-sm font-bold"
+                                                        >
+                                                            <Icon name="eye" className="w-5 h-5" />
+                                                            Visualizar Factura
+                                                        </button>
+                                                        <a 
+                                                            href={selectedRecord.invoice.base64} 
+                                                            download={selectedRecord.invoice.name || 'factura.pdf'}
+                                                            className="w-14 h-14 flex items-center justify-center rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 transition-colors"
+                                                            title="Descargar PDF"
+                                                        >
+                                                            <Icon name="download" className="w-6 h-6 text-slate-400" />
+                                                        </a>
+                                                    </div>
+                                                </section>
+                                            )}
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="mt-12 pt-8 border-t border-white/5 flex flex-col sm:flex-row justify-between items-center gap-4">
+                                        <div className="flex items-center gap-4">
+                                            <button 
+                                                onClick={() => { startEdit(selectedRecord); setSelectedRecord(null); }}
+                                                className="flex items-center gap-2 px-6 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all text-sm font-bold text-blue-400"
+                                            >
+                                                <Icon name="edit" className="w-4 h-4" />
+                                                Editar Registro
+                                            </button>
+                                            <button 
+                                                onClick={() => { if(confirm('¿Seguro que quieres borrar este registro?')) { deleteRecord(selectedRecord.id); setSelectedRecord(null); } }}
+                                                className="flex items-center gap-2 px-4 py-3 rounded-xl hover:bg-red-500/10 transition-all text-xs font-bold text-red-500/60 hover:text-red-500"
+                                            >
+                                                <Icon name="trash" className="w-4 h-4" />
+                                                Eliminar
+                                            </button>
+                                        </div>
+                                        <div className="text-[10px] text-slate-600 font-bold uppercase tracking-widest italic">ID: {selectedRecord.id}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Invoice Preview Modal */}
                     {previewInvoice && (
